@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 // ---------------- STATIC FRONTEND ----------------
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static("public"));
 
 // ---------------- MONGODB CONNECT ----------------
 mongoose.connect(process.env.MONGO_URI)
