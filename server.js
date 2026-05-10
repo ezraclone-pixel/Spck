@@ -1,5 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
+const path = require("path");
 const cors = require("cors");
 require("dotenv").config();
 
@@ -12,8 +13,9 @@ app.use(express.static("public"));
 
 // FIX: Not Found / Route issue
 app.get("/", (req, res) => {
-    res.sendFile(__dirname + "/public/index.html");
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
 
 // ---------------- MONGODB ----------------
 mongoose.connect(process.env.MONGO_URI)
