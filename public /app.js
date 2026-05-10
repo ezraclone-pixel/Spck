@@ -1,241 +1,188 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-const user = tg.initDataUnsafe?.user || {
-    id: Date.now(),
-    first_name: "Guest"
-};
+const user = tg.initDataUnsafe?.user;
 
-const API = "https://spck-xgzq.onrender.com";
+const API_URL = "https://spck-xgzq.onrender.com";
 
-// ---------------- HAPTIC ----------------
-function haptic() {
-    if (tg.HapticFeedback) {
-        tg.HapticFeedback.impactOccurred("medium");
-    }
-}
+let currentUser = null;
 
-// ---------------- PAGE ----------------
-function showPage(pageId, element) {
-    haptic();
+// ---------------- LOGIN + REF ----------------
 
-    document.querySelectorAll(".page").forEach(p => {
-        p.style.display = "none";
-    });
+async function login() {
 
-    document.getElementById(pageId).style.display = "flex";
-
-    document.querySelectorAll(".nav-item").forEach(nav => {
-        nav.classList.remove("active");
-    });
-
-    if (element) {
-        element.classList.add("active");
-    }
-}
-
-// ---------------- COUNTDOWN ----------------
-function updateCountdown() {
-    const now = new Date();
-
-    const end = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0,
-        23,
-        59,
-        59
-    );
-
-    const diff = end - now;
-
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    const hours = Math.floor(
-        (diff / (1000 * 60 * 60)) % 24
-    );
-
-    const mins = Math.floor(
-        (diff / (1000 * 60)) % 60
-    );
-
-    const secs = Math.floor(
-        (diff / 1000) % 60
-    );
-
-    const el = document.getElementById("countdown");
-
-    if (el) {
-        el.innerText =
-            `${days}D : ` +
-            `${hours.toString().padStart(2, "0")}H : ` +
-            `${mins.toString().padStart(2, "0")}M : ` +
-            `${secs.toString().padStart(2, "0")}S`;
-    }
-}
-
-setInterval(updateCountdown, 1000);
-updateCountdown();
-
-// ---------------- LOAD WALLET ----------------
-async function loadWallet() {
+    if (!user) return;
 
     try {
 
-        const res = await fetch(`${API}/user/${user.id}`);
+        const startParam =
+            Telegram.WebApp.initDataUnsafe.start_param;
 
-        const data = await res.json();
+        const res = await fetch(`${API_URL}/login`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                telegramId: user.id,
+                name: user.first_name,
+                ref: startParam || null
+            })
+        });
 
-        const balanceEl = document.querySelector(".balance-card h1");
+        currentUser = await res.json();
 
-        if (balanceEl) {
-            balanceEl.innerText = data.points || 0;
-        }
-
-        const rankPoints = document.querySelector(".user-rank-card .rank-points");
-
-        if (rankPoints) {
-            rankPoints.innerText = data.points || 0;
-        }
+        updateUI();
 
     } catch (err) {
+
         console.log(err);
+    }
+}
+
+// ---------------- UPDATE UI ----------------
+
+function updateUI() {
+
+    if (!currentUser) return;
+
+    const username =
+        document.getElementById("username");
+
+    const points =
+        document.getElementById("points");
+
+    if (username) {
+        username.innerText = currentUser.name;
+    }
+
+    if (points) {
+        points.innerText = currentUser.points;
     }
 }
 
 // ---------------- DAILY CLAIM ----------------
-async function claimDailyReward() {
 
-    haptic();
+async function claimDaily() {
 
     try {
 
-        const res = await fetch(`${API}/claim`, {
+        const res = await fetch(`${API_URL}/daily`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                userId: user.id,
-                name: user.first_name
+                telegramId: currentUser.telegramId
             })
         });
 
         const data = await res.json();
 
-        alert(data.msg);
+        alert(data.message);
 
-        loadWallet();
+        if (data.user) {
+
+            currentUser = data.user;
+
+            updateUI();
+        }
 
     } catch (err) {
-
-        alert("Server Error");
 
         console.log(err);
     }
 }
 
-// ---------------- WITHDRAW ----------------
-async function withdrawPoints() {
+// ---------------- INVITE SYSTEM ----------------
 
-    haptic();
-
-    const amount = prompt("Withdraw Points:");
-
-    if (!amount) return;
-
-    try {
-
-        const res = await fetch(`${API}/withdraw`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                userId: user.id,
-                amount: parseInt(amount)
-            })
-        });
-
-        const data = await res.json();
-
-        alert(data.success ? "Withdraw Requested" : data.msg);
-
-        loadWallet();
-
-    } catch (err) {
-
-        alert("Withdraw Failed");
-
-        console.log(err);
-    }
-}
-
-// ---------------- INVITE ----------------
 function inviteFriends() {
 
-    haptic();
+    if (!currentUser) return;
 
-    const bot = "Myatt_205bot";
+    const botUsername = "Myatt_205bot";
 
-    const link =
-        `https://t.me/${bot}?startapp=${user.id}`;
+    const refLink =
+        `https://t.me/${botUsername}?start=${currentUser.telegramId}`;
 
-    tg.openTelegramLink(
-        `https://t.me/share/url?url=${encodeURIComponent(link)}`
+    const text =
+        `Join Myat Digital Shop and earn rewards!\n${refLink}`;
+
+    Telegram.WebApp.openTelegramLink(
+        `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(text)}`
     );
 }
 
-// ---------------- JOIN CHANNEL ----------------
-function joinChannel() {
+// ---------------- WITHDRAW ----------------
 
-    haptic();
+async function withdraw(points, wallet) {
 
-    tg.openTelegramLink("https://t.me/Myat_2055");
+    try {
+
+        const res = await fetch(`${API_URL}/withdraw`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                telegramId: currentUser.telegramId,
+                points,
+                wallet
+            })
+        });
+
+        const data = await res.json();
+
+        alert(data.message);
+
+        if (data.user) {
+
+            currentUser = data.user;
+
+            updateUI();
+        }
+
+    } catch (err) {
+
+        console.log(err);
+    }
 }
 
-// ---------------- SHOP ----------------
-function openShop() {
+// ---------------- SHOP ORDER ----------------
 
-    haptic();
+async function buyProduct(product, price) {
 
-    const navs = document.querySelectorAll(".nav-item");
+    try {
 
-    showPage("shop", navs[1]);
+        const res = await fetch(`${API_URL}/buy`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                telegramId: currentUser.telegramId,
+                product,
+                price
+            })
+        });
+
+        const data = await res.json();
+
+        alert(data.message);
+
+        if (data.user) {
+
+            currentUser = data.user;
+
+            updateUI();
+        }
+
+    } catch (err) {
+
+        console.log(err);
+    }
 }
 
 // ---------------- START ----------------
-window.onload = () => {
 
-    loadWallet();
-
-    const dailyBtn = document.querySelectorAll(".claim-btn")[0];
-
-    if (dailyBtn) {
-        dailyBtn.onclick = claimDailyReward;
-    }
-
-    const joinBtn = document.querySelectorAll(".claim-btn")[1];
-
-    if (joinBtn) {
-        joinBtn.onclick = joinChannel;
-    }
-
-    const inviteBtn = document.querySelectorAll(".claim-btn")[2];
-
-    if (inviteBtn) {
-        inviteBtn.onclick = inviteFriends;
-    }
-
-    const shopBtn = document.querySelectorAll(".claim-btn")[3];
-
-    if (shopBtn) {
-        shopBtn.onclick = openShop;
-    }
-
-    const withdrawBtn = document.querySelector(".btn-blue");
-
-    if (withdrawBtn) {
-        withdrawBtn.onclick = withdrawPoints;
-    }
-};
+login();
