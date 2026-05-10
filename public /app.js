@@ -6,7 +6,7 @@ const user = tg.initDataUnsafe?.user || {
     first_name: "Guest"
 };
 
-const API = "https://YOUR-RENDER-URL.onrender.com";
+const API = "https://spck-xgzq.onrender.com";
 
 // ---------------- HAPTIC ----------------
 function haptic() {
