@@ -9,7 +9,8 @@ const app = express();
 // ---------------- MIDDLEWARE ----------------
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
+
 
 // FIX: Not Found / Route issue
 app.get("/", (req, res) => {
